@@ -4,12 +4,48 @@ author: "DAY"
 format: html
 ---
 
-## yay
-
-
-## WHY YOU SO LATE TODAY?
-```{r}
-
+## packages
+```{r, message = FALSE}
+library(tidyverse) #for data cleaning
 ```
 
-## You don't have to worry about being late :)
+## read in the data
+```{r}
+car_raw <- read_csv("car_data.csv")
+head(car_raw)
+```
+## summary statistics
+```{r}
+summary(car_raw)
+```
+
+## are there any NA values?
+
+```{r}
+sum(is.na(car_raw))
+```
+
+## converting variables to appropriate formats
+```{r}
+## converting variables to appropriate formats
+## the below code converts the 'v_gender' and 'Blink_or_Honk' variables from numeric to binary
+## and the 'CarColor' variable from numeric to a factor
+
+car_raw <- car_raw %>% 
+  mutate(v_gender = as.logical(v_gender),
+         Blink_or_Honk = as.logical(Blink_or_Honk),
+         CarColor = as.factor(CarColor))
+```
+
+## let's look at the distributions of the variables
+```{r}
+hist(car_raw$RespTimeSeconds)
+hist(car_raw$CarColor)
+
+#
+ggplot(car_raw, aes(x = CarColor)) +
+  geom_histogram(stat = "count")
+## group sizes look equal
+table(car_raw$CarColor)
+```
+
