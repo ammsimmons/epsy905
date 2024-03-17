@@ -1,25 +1,104 @@
 ---
 title: "question1"
-format: html
+format:
+  html:
+    embed-resources: true
 ---
 
-## Quarto
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+#Question 1
 
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+## Load data
 
 ```{r}
-1 + 1
+library(tidyverse)
+library(easystats)
+library(ggplot2)
+
+dat <- readxl::read_xlsx("EPSY905 Snowbound(s24).xlsx")
+
+#IVs as factors 
+dat$Ski_or_Board <- factor(dat$Ski_or_Board, levels = c(1,2),
+                           labels = c("Ski", "Snowboard"))
+dat$lessontype <- factor(dat$lessontype, levels = c(1,2,3),
+                         labels = c("Private","Group","NoLesson"))
+#other variables are continuous (Time,Falls,and SES)
+summary(dat)
+# notice: lessontype is unequal sample sizes (SO WHICH MV TEST to USE? - pilais)
+
+#test multivariate normality of DV? 
+# qqnorm(dat$Falls)
+# qqnorm(dat$Time)
 ```
 
-You can add options to executable code like this 
+
+## Explore individual variables & check for outliers
+```{r}
+
+#1. outliers: perform by separating first into each group
+outlier_uni <- dat %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate_at(vars(Falls,Time),scale)
+#univariate outlier ID 587 (by time)
+
+mahal_d <- function(x,y){
+  tmp <- data.frame(x,y)
+  mahalanobis(tmp,colMeans(tmp),cov(tmp))
+}
+
+outlier_multi <- dat %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate(mahal = mahal_d(Falls,Time))
+#multivariate outlier ID 587
+
+
+#we will winsorize whole data
+dat_update <- dat %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate(Time_Win = winsorize(Time, probs=c(0.01,0.99)))
+
+outlier_uni <- dat_update %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate_at(vars(Falls,Time_Win),scale)
+outlier_multi <- dat_update %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate(mahal = mahal_d(Falls,Time_Win))
+
+#2 check multivariate normality & sample sizes 
+check_multinorm_falls <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
+  describe_distribution(Falls)
+
+check_multinorm_time <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
+  describe_distribution(Time_Win)
+
+
+#3 linearity: check each group with bivariate scatterplots
+dat_plots <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate(groupID = cur_group_id())
+
+dat_plots$groupID <- as.factor(dat_plots$groupID)
+
+s1 <- ggplot(dat_plots, aes(x = Time_Win, y = Falls, color = groupID)) + 
+  geom_point() 
+         
+         
+pairs(dat_update[,2:5])
+
+#3 check homogeneity of variance-covariance matrix
+options(heplots.useNULL=TRUE)
+library(heplots)
+#first fit model
+m1 <- manova(cbind(Time_Win, Falls) ~ Ski_or_Board * lessontype, data = dat_update)
+heplots::boxM(m1)
+
+#2. check correlation of IV/predictors
+
+#check correlation of DVs 
+cor(dat$Time, dat$Falls) # highly correlated! Do we need MVA? 
+
+```
+
+
+## Q1_1: fit the models with interaction, and with and without covariates 
 
 ```{r}
-#| echo: false
-2 * 2
+m1 <- manova(cbind(dat$Falls,dat$Time) ~ Ski_or_Board * lessontype + SES, data = dat )
+#effect of covariates, so keep covariates 
+#interaction is not significant 
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
