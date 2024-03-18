@@ -83,7 +83,8 @@ dat_plots$groupID <- as.factor(dat_plots$groupID)
 
 s1 <- ggplot(dat_plots, aes(x = Time, y = Falls, color = groupID)) + 
   geom_point() 
-         
+
+s1
         
 
 #4 check homogeneity of variance-covariance matrix
@@ -126,9 +127,9 @@ coef(m2)
 
 effectsize::eta_squared(m1)
 
-mancova(data = dat_update, deps = vars(Falls,Time), 
-        factors = vars(Ski_or_Board, lessontype), 
-        covs = SES)
+# mancova(data = dat_update, deps = vars(Falls,Time), 
+#         factors = vars(Ski_or_Board, lessontype), 
+#         covs = SES)
 
 ```
 
