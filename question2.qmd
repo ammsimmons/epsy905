@@ -238,7 +238,7 @@ The Levene's test of equality of variances assumes continuous dependent variable
 We are also not able to conduct Box's M test because it is designed for continuous variables and depends on the variance of those continuous variables. 
 ## MANOVA
 ```{r}
-## MANCOVA model
+## MANOVA model
 model <- manova(cbind(RespTimeSeconds, Blink_or_Honk) ~ CarColor + v_gender, data = car_raw)
 
 summary(model)
@@ -253,6 +253,14 @@ For CarColor, Pillai's trace is 0.075298 with an approximate F statistic of 4.06
 For v_gender, Pillai's trace is 0.296780 with an approximate F statistic of 87.571.
 
 In summary, the MANOVA results indicate that both CarColor and v_gender have significant effects on the dependent variables. However, MANOVA may not be appropriate here because we have a binary dependent variable.
+
+## Another MANOVA model with IV interactions
+```{r}
+model2 <- manova(cbind(RespTimeSeconds, Blink_or_Honk) ~ CarColor * v_gender, data = car_raw)
+
+summary(model2)
+```
+The interaction was not significant.
 
 
 ## Trying SEM instead

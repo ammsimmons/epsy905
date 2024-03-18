@@ -3396,7 +3396,7 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="assumption-8-homogeneity-of-covariances-not-able-to-conduct-this-test">Assumption 8 / Homogeneity of Covariances: <code>Not able to conduct this test</code></h2>
 <p>We are also not able to conduct Box’s M test because it is designed for continuous variables and depends on the variance of those continuous variables. ## MANOVA</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="do">## MANCOVA model</span></span>
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="do">## MANOVA model</span></span>
 <span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="fu">manova</span>(<span class="fu">cbind</span>(RespTimeSeconds, Blink_or_Honk) <span class="sc">~</span> CarColor <span class="sc">+</span> v_gender, <span class="at">data =</span> car_raw)</span>
 <span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(model)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -3415,26 +3415,44 @@ Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&
 <p>For CarColor, Pillai’s trace is 0.075298 with an approximate F statistic of 4.069. For v_gender, Pillai’s trace is 0.296780 with an approximate F statistic of 87.571.</p>
 <p>In summary, the MANOVA results indicate that both CarColor and v_gender have significant effects on the dependent variables. However, MANOVA may not be appropriate here because we have a binary dependent variable.</p>
 </section>
+<section id="another-manova-model-with-iv-interactions" class="level2">
+<h2 class="anchored" data-anchor-id="another-manova-model-with-iv-interactions">Another MANOVA model with IV interactions</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>model2 <span class="ot">&lt;-</span> <span class="fu">manova</span>(<span class="fu">cbind</span>(RespTimeSeconds, Blink_or_Honk) <span class="sc">~</span> CarColor <span class="sc">*</span> v_gender, <span class="at">data =</span> car_raw)</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(model2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                   Df   Pillai approx F num Df den Df    Pr(&gt;F)    
+CarColor            4 0.075472    4.039      8    824 0.0001007 ***
+v_gender            1 0.297886   87.188      2    411 &lt; 2.2e-16 ***
+CarColor:v_gender   4 0.008764    0.453      8    824 0.8887279    
+Residuals         412                                              
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+</div>
+</div>
+<p>The interaction was not significant.</p>
+</section>
 <section id="trying-sem-instead" class="level2">
 <h2 class="anchored" data-anchor-id="trying-sem-instead">Trying SEM instead</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lavaan)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lavaan)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>This is lavaan 0.6-17
 lavaan is FREE software! Please report any bugs.</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Specify the SEM model</span></span>
-<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="st">&quot;</span></span>
-<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a><span class="st">    # Measurement model for CarColor</span></span>
-<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a><span class="st">    latent_car_color =~ CarColor</span></span>
-<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a><span class="st">    # Structural model</span></span>
-<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a><span class="st">    Blink_or_Honk ~ latent_car_color + v_gender</span></span>
-<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a><span class="st">    RespTimeSeconds ~ latent_car_color + v_gender</span></span>
-<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span></span>
-<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-11"><a href="#cb46-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit the SEM model</span></span>
-<span id="cb46-12"><a href="#cb46-12" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">sem</span>(model, <span class="at">data =</span> car_raw)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Specify the SEM model</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>model <span class="ot">&lt;-</span> <span class="st">&quot;</span></span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="st">    # Measurement model for CarColor</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a><span class="st">    latent_car_color =~ CarColor</span></span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a><span class="st">    # Structural model</span></span>
+<span id="cb48-7"><a href="#cb48-7" aria-hidden="true" tabindex="-1"></a><span class="st">    Blink_or_Honk ~ latent_car_color + v_gender</span></span>
+<span id="cb48-8"><a href="#cb48-8" aria-hidden="true" tabindex="-1"></a><span class="st">    RespTimeSeconds ~ latent_car_color + v_gender</span></span>
+<span id="cb48-9"><a href="#cb48-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span></span>
+<span id="cb48-10"><a href="#cb48-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-11"><a href="#cb48-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit the SEM model</span></span>
+<span id="cb48-12"><a href="#cb48-12" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">sem</span>(model, <span class="at">data =</span> car_raw)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning in lav_data_full(data = data, group = group, cluster = cluster, :
 lavaan WARNING: exogenous variable(s) declared as ordered in data: v_gender</code></pre>
@@ -3448,7 +3466,7 @@ lavaan WARNING: exogenous variable(s) declared as ordered in data: v_gender</cod
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning in lav_test_satorra_bentler(lavobject = NULL, lavsamplestats = lavsamplestats, : lavaan WARNING: could not invert information matrix needed for robust test statistic</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>lavaan 0.6.17 ended normally after 25 iterations
 
