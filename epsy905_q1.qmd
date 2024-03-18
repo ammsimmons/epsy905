@@ -49,14 +49,22 @@ outlier_multi <- dat %>% group_by(Ski_or_Board, lessontype) %>%
   mutate(mahal = mahal_d(Falls,Time))
 #multivariate outlier ID 587
 
-
-#we will winsorize whole data
-dat_update <- dat %>% group_by(Ski_or_Board, lessontype) %>%
-  mutate(Time_Win = winsorize(Time, probs=c(0.01,0.99)))
+#remove multivariate outlier ID 587 
+dat_update <- filter(dat, ID != 587 & ID != 7 & ID != 525 & ID != 283)
 
 outlier_uni <- dat_update %>% group_by(Ski_or_Board, lessontype) %>% 
-  mutate_at(vars(Falls,Time_Win),scale)
+  mutate_at(vars(Falls,Time),scale)
 outlier_multi <- dat_update %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate(mahal = mahal_d(Falls,Time))
+
+
+# #we will winsorize whole data
+dat_win <- dat %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate(Time_Win = winsorize(Time, probs=c(0.01,0.99)))
+
+outlier_uni <- dat_win %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate_at(vars(Falls,Time_Win),scale)
+outlier_multi <- dat_win %>% group_by(Ski_or_Board, lessontype) %>%
   mutate(mahal = mahal_d(Falls,Time_Win))
 
 #2 check multivariate normality & sample sizes 
@@ -64,7 +72,7 @@ check_multinorm_falls <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
   describe_distribution(Falls)
 
 check_multinorm_time <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
-  describe_distribution(Time_Win)
+  describe_distribution(Time)
 
 
 #3 linearity: check each group with bivariate scatterplots
@@ -73,23 +81,34 @@ dat_plots <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
 
 dat_plots$groupID <- as.factor(dat_plots$groupID)
 
-s1 <- ggplot(dat_plots, aes(x = Time_Win, y = Falls, color = groupID)) + 
+s1 <- ggplot(dat_plots, aes(x = Time, y = Falls, color = groupID)) + 
   geom_point() 
          
-         
-pairs(dat_update[,2:5])
+        
 
-#3 check homogeneity of variance-covariance matrix
+#4 check homogeneity of variance-covariance matrix
 options(heplots.useNULL=TRUE)
 library(heplots)
+library(car)
 #first fit model
-m1 <- manova(cbind(Time_Win, Falls) ~ Ski_or_Board * lessontype, data = dat_update)
-heplots::boxM(m1)
+boxM(cbind(Time,Falls) ~ Ski_or_Board * lessontype, data = dat_update)
+boxM(cbind(Time_Win, Falls) ~ Ski_or_Board * lessontype, data = dat_win)
 
-#2. check correlation of IV/predictors
+#levenetests on winsorized data 
+leveneTest(Time_Win ~ Ski_or_Board * lessontype, data = dat_win)
+leveneTest(Falls ~ Ski_or_Board * lessontype, data = dat_win)
 
-#check correlation of DVs 
-cor(dat$Time, dat$Falls) # highly correlated! Do we need MVA? 
+#leventest test on updated data 
+leveneTest(Time ~ Ski_or_Board * lessontype, data = dat_update)
+leveneTest(Falls ~ Ski_or_Board * lessontype, data = dat_update)
+
+#considering the square root transform & log transform
+dat_sqr <- dat_update %>% mutate(
+  Time_sqr = sqrt(Time),
+  Falls_sqr = (Falls)
+)
+boxM(cbind(Time_sqr,Falls_sqr) ~ Ski_or_Board * lessontype, data= dat_sqr)
+
 
 ```
 
@@ -97,8 +116,29 @@ cor(dat$Time, dat$Falls) # highly correlated! Do we need MVA?
 ## Q1_1: fit the models with interaction, and with and without covariates 
 
 ```{r}
-m1 <- manova(cbind(dat$Falls,dat$Time) ~ Ski_or_Board * lessontype + SES, data = dat )
-#effect of covariates, so keep covariates 
-#interaction is not significant 
+m1 <- manova(cbind(Falls,Time) ~ SES + Ski_or_Board * lessontype,  data = dat_update)
+#effect of covariates comes first 
+summary(m1)
+
+#see the estimates in glm
+m2 <- lm(cbind(Falls,Time) ~ SES + Ski_or_Board * lessontype,  data = dat_update)
+coef(m2)
+
+effectsize::eta_squared(m1)
+
+mancova(data = dat_update, deps = vars(Falls,Time), 
+        factors = vars(Ski_or_Board, lessontype), 
+        covs = SES)
+
+```
+
+Plots 
+```{r}
+
+library(gridExtra)
+p1 <- ggplot(dat_update, aes(x = Ski_or_Board, y = Falls, fill = Ski_or_Board)) + geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2) + theme(legend.position="top")
+p2 <- ggplot(dat_update, aes(x = Ski_or_Board, y = Time, fill = Ski_or_Board)) + geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2) + theme(legend.position="top")
+p3 <- grid.arrange(p1, p2, ncol=2)
+
 ```
 
