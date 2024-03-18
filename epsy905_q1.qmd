@@ -26,7 +26,7 @@ dat$lessontype <- factor(dat$lessontype, levels = c(1,2,3),
 summary(dat)
 # notice: lessontype is unequal sample sizes (SO WHICH MV TEST to USE? - pilais)
 
-#test multivariate normality of DV? 
+#test multivariate normality of DV 
 # qqnorm(dat$Falls)
 # qqnorm(dat$Time)
 ```
@@ -49,7 +49,7 @@ outlier_multi <- dat %>% group_by(Ski_or_Board, lessontype) %>%
   mutate(mahal = mahal_d(Falls,Time))
 #multivariate outlier ID 587
 
-#remove multivariate outlier ID 587 
+#remove multivariate outlier ID 587, 7, 525, 283
 dat_update <- filter(dat, ID != 587 & ID != 7 & ID != 525 & ID != 283)
 
 outlier_uni <- dat_update %>% group_by(Ski_or_Board, lessontype) %>% 
@@ -113,7 +113,7 @@ boxM(cbind(Time_sqr,Falls_sqr) ~ Ski_or_Board * lessontype, data= dat_sqr)
 ```
 
 
-## Q1_1: fit the models with interaction, and with and without covariates 
+## Q1_1: fit the models with interaction, and with covariates 
 
 ```{r}
 m1 <- manova(cbind(Falls,Time) ~ SES + Ski_or_Board * lessontype,  data = dat_update)
