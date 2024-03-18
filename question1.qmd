@@ -1,0 +1,145 @@
+---
+title: "question1"
+format:
+  html:
+    embed-resources: true
+---
+
+
+#Question 1
+
+## Load data
+
+```{r}
+library(tidyverse)
+library(easystats)
+library(ggplot2)
+
+dat <- readxl::read_xlsx("EPSY905 Snowbound(s24).xlsx")
+
+#IVs as factors 
+dat$Ski_or_Board <- factor(dat$Ski_or_Board, levels = c(1,2),
+                           labels = c("Ski", "Snowboard"))
+dat$lessontype <- factor(dat$lessontype, levels = c(1,2,3),
+                         labels = c("Private","Group","NoLesson"))
+#other variables are continuous (Time,Falls,and SES)
+summary(dat)
+# notice: lessontype is unequal sample sizes (SO WHICH MV TEST to USE? - pilais)
+
+#test multivariate normality of DV 
+# qqnorm(dat$Falls)
+# qqnorm(dat$Time)
+```
+
+
+## Explore individual variables & check for outliers
+```{r}
+
+#1. outliers: perform by separating first into each group
+outlier_uni <- dat %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate_at(vars(Falls,Time),scale)
+#univariate outlier ID 587 (by time)
+
+mahal_d <- function(x,y){
+  tmp <- data.frame(x,y)
+  mahalanobis(tmp,colMeans(tmp),cov(tmp))
+}
+
+outlier_multi <- dat %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate(mahal = mahal_d(Falls,Time))
+#multivariate outlier ID 587
+
+#remove multivariate outlier ID 587, 7, 525, 283
+dat_update <- filter(dat, ID != 587 & ID != 7 & ID != 525 & ID != 283)
+
+outlier_uni <- dat_update %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate_at(vars(Falls,Time),scale)
+outlier_multi <- dat_update %>% group_by(Ski_or_Board, lessontype) %>% 
+  mutate(mahal = mahal_d(Falls,Time))
+
+
+# #we will winsorize whole data
+dat_win <- dat %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate(Time_Win = winsorize(Time, probs=c(0.01,0.99)))
+
+outlier_uni <- dat_win %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate_at(vars(Falls,Time_Win),scale)
+outlier_multi <- dat_win %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate(mahal = mahal_d(Falls,Time_Win))
+
+#2 check multivariate normality & sample sizes 
+check_multinorm_falls <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
+  describe_distribution(Falls)
+
+check_multinorm_time <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
+  describe_distribution(Time)
+
+
+#3 linearity: check each group with bivariate scatterplots
+dat_plots <- dat_update %>% group_by(Ski_or_Board, lessontype) %>%
+  mutate(groupID = cur_group_id())
+
+dat_plots$groupID <- as.factor(dat_plots$groupID)
+
+s1 <- ggplot(dat_plots, aes(x = Time, y = Falls, color = groupID)) + 
+  geom_point() 
+
+s1
+        
+
+#4 check homogeneity of variance-covariance matrix
+options(heplots.useNULL=TRUE)
+library(heplots)
+library(car)
+#first fit model
+boxM(cbind(Time,Falls) ~ Ski_or_Board * lessontype, data = dat_update)
+boxM(cbind(Time_Win, Falls) ~ Ski_or_Board * lessontype, data = dat_win)
+
+#levenetests on winsorized data 
+leveneTest(Time_Win ~ Ski_or_Board * lessontype, data = dat_win)
+leveneTest(Falls ~ Ski_or_Board * lessontype, data = dat_win)
+
+#leventest test on updated data 
+leveneTest(Time ~ Ski_or_Board * lessontype, data = dat_update)
+leveneTest(Falls ~ Ski_or_Board * lessontype, data = dat_update)
+
+#considering the square root transform & log transform
+dat_sqr <- dat_update %>% mutate(
+  Time_sqr = sqrt(Time),
+  Falls_sqr = (Falls)
+)
+boxM(cbind(Time_sqr,Falls_sqr) ~ Ski_or_Board * lessontype, data= dat_sqr)
+
+
+```
+
+
+## Q1_1: fit the models with interaction, and with covariates 
+
+```{r}
+m1 <- manova(cbind(Falls,Time) ~ SES + Ski_or_Board * lessontype,  data = dat_update)
+#effect of covariates comes first 
+summary(m1)
+
+#see the estimates in glm
+m2 <- lm(cbind(Falls,Time) ~ SES + Ski_or_Board * lessontype,  data = dat_update)
+coef(m2)
+
+effectsize::eta_squared(m1)
+
+# mancova(data = dat_update, deps = vars(Falls,Time), 
+#         factors = vars(Ski_or_Board, lessontype), 
+#         covs = SES)
+
+```
+
+Plots 
+```{r}
+
+library(gridExtra)
+p1 <- ggplot(dat_update, aes(x = Ski_or_Board, y = Falls, fill = Ski_or_Board)) + geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2) + theme(legend.position="top")
+p2 <- ggplot(dat_update, aes(x = Ski_or_Board, y = Time, fill = Ski_or_Board)) + geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.2) + theme(legend.position="top")
+p3 <- grid.arrange(p1, p2, ncol=2)
+
+```
+
