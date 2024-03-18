@@ -7,11 +7,21 @@ format: html
 ## packages
 ```{r, message = FALSE}
 library(tidyverse) #for data cleaning
+library(car) #for MANOVA and Levene's test
+library(rstatix) #tidy stats
+library(ggpubr) #for creating some plots
+library(ltm) #for biserial correlation
+library(GGally) #for creating some plots
+library(patchwork) #for combining figures
 ```
 
 ## read in the data
 ```{r}
 car_raw <- read_csv("car_data.csv")
+```
+
+### preview the data
+```{r}
 head(car_raw)
 ```
 ## summary statistics
@@ -19,33 +29,252 @@ head(car_raw)
 summary(car_raw)
 ```
 
-## are there any NA values?
+## are there any NA or Missing values? -- no
 
 ```{r}
 sum(is.na(car_raw))
+anyNA(car_raw)
 ```
 
 ## converting variables to appropriate formats
 ```{r}
 ## converting variables to appropriate formats
-## the below code converts the 'v_gender' and 'Blink_or_Honk' variables from numeric to binary
-## and the 'CarColor' variable from numeric to a factor
+## the below code converts the 3 variables from numeric to factors
 
 car_raw <- car_raw %>% 
-  mutate(v_gender = as.logical(v_gender),
-         Blink_or_Honk = as.logical(Blink_or_Honk),
-         CarColor = as.factor(CarColor))
+  mutate(v_gender = factor(v_gender, levels = c(0,1), ordered = TRUE),
+         Blink_or_Honk = factor(Blink_or_Honk, levels = c(0,1), ordered = TRUE),
+         CarColor = factor(CarColor, levels = 1:5, ordered = TRUE))
 ```
 
 ## let's look at the distributions of the variables
-```{r}
-hist(car_raw$RespTimeSeconds)
-hist(car_raw$CarColor)
 
-#
-ggplot(car_raw, aes(x = CarColor)) +
-  geom_histogram(stat = "count")
-## group sizes look equal
-table(car_raw$CarColor)
+### Response Time (in seconds) -- appears normally distributed
+```{r, message = FALSE}
+# Response Time
+# appears normally distributed
+
+#Car Color
+ggplot(car_raw, aes(x = RespTimeSeconds)) +
+  geom_histogram() +
+  facet_wrap(~CarColor)
+
+#Gender of Driver
+ggplot(car_raw, aes(x = RespTimeSeconds)) +
+  geom_histogram() +
+  facet_wrap(~v_gender)
 ```
 
+```{r}
+#combine the figures
+p1 <- ggplot(car_raw, aes(x = RespTimeSeconds)) +
+  geom_histogram() +
+  facet_wrap(~CarColor)
+
+p2 <- ggplot(car_raw, aes(x = RespTimeSeconds)) +
+  geom_histogram() +
+  facet_wrap(~v_gender)
+
+p1 + p2
+```
+
+
+
+### Car Color -- equal group sizes
+```{r}
+## Car Color
+## group sizes look equal
+table(car_raw$CarColor)
+
+##let's visualize that
+ggplot(car_raw, aes(x = CarColor)) +
+  geom_bar()
+```
+
+### Gender of Driver -- 178 female, 244 male
+```{r}
+ggplot(car_raw, aes(x = v_gender)) +
+  geom_bar()
+
+table(car_raw$v_gender)
+# 0 == female
+# 1 == male
+```
+
+
+## List of MANOVA assumptions:
+1. Adequate sample size
+1. Independence of the observations
+1. Absense of univariate or multivariate outliers
+1. Univariate and Multivariate normality
+1. Absence of multicollinearity
+1. Linearity between outcome variables
+1. Homogeneity of variances
+1. Homogeneity of variance-covariance matrices 
+
+
+## Let's test each assumption below
+
+## Assumption 1 / Adequate Sample Size : `Satisfied`
+
+```{r}
+car_raw %>%
+  group_by(CarColor) %>%
+  summarise(N = n())
+```
+```{r}
+car_raw %>%
+  group_by(v_gender) %>%
+  summarise(N = n())
+```
+
+Assumption 1 states that number of observations in each group should be greater than the number of outcome variables. This assumption is clearly met in the data (see above tables).
+
+
+## Assumption 2 / Independence of Observations : `Satisfied`
+
+Each row is an independent observation, so this assumption is satisfied.
+
+
+## Assumption 3 / Absense of outliers : `Satisfied for Response Time DV`
+
+#### Test for univariate outliers : Box Plot Method
+##### Response Time Variable
+```{r}
+car_raw %>% 
+  group_by(CarColor) %>% 
+  identify_outliers(RespTimeSeconds)
+```
+This univariate outlier test identified one outlier, but there results show that it is considered "not extreme." As a result, I think it is fine to leave this "outlier" in the dataset. We cannot test for univariate outliers in the other DV (Driver's Reaction of Blinking or Honking) because it is a binary/categorical variable.
+
+#### Test for multivariate outliers : Mahalanobis Distance
+```{r}
+car_raw %>%
+ group_by(CarColor) %>%
+ mahalanobis_distance() %>%
+ filter(is.outlier == TRUE) %>%
+  as.data.frame()
+```
+
+According to the Mahalanobis Distance test, there appears to be no multivariate outliers in this dataset.
+
+
+## Assumption 4 / Univariate and Multivariate Normality : `Satisfied for Response Time DV`
+
+### Shapiro-Wilks Test for Univariate Normality
+
+##### Grouped by Car Color
+```{r}
+car_raw %>%
+  group_by(CarColor) %>%
+  shapiro_test(RespTimeSeconds) 
+```
+##### Grouped by gender of Driver
+```{r}
+car_raw %>%
+  group_by(v_gender) %>%
+  shapiro_test(RespTimeSeconds) 
+```
+
+According to the Shapiro-Wilks Test, Response Time is normally distributed for each group (p > 0.05 for each group). We cannot run the Shapiro-Wilks test on the other DV (Driver's Reaction of Blinking or Honking) because it is a binary/categorical variable.
+
+###### Here are some QQ plots to visualize the univariate normality of the Response Time variable:
+```{r}
+ggqqplot(car_raw, "RespTimeSeconds", facet.by = "CarColor",
+         ylab = "Response Time")
+```
+
+### Shapiro test for multivariate normality
+
+```{r}
+car_raw %>%
+  select(RespTimeSeconds) %>%
+  mshapiro_test()
+```
+The p value of the shapiro test is slightly greater than 0.05, which indicates that it is not significant, and we can assume multivariate normality. We cannot perform this test on the other dependent variable (Driver's reaction of blink or honk) because it is a binary/categorical variable.
+
+
+## Assumption 5 / Absense of Multicollinearity : `Satisfied`
+
+We have two outcome variables: Response Time and Driver's Reaction (Blink or Honk). Since Driver's Reaction is a binary/categorical variable and Response Time is a continuous variable, we will need to conduct a point-biserial correlation to evaluate multicollinearity.
+
+```{r}
+biserial.cor(car_raw$RespTimeSeconds, car_raw$Blink_or_Honk, use = "all.obs")
+```
+
+From the biserial correlation, we can see that the two dependent variables are only slightly positively correlated, so we do not have multicollinearity of DVs in this dataset.
+
+## Assumption 6 / Linearity between outcome variables: `Satisfied`
+
+```{r, message = FALSE, warning = FALSE}
+# Fit logistic regression model
+logit_model <- glm(Blink_or_Honk ~ RespTimeSeconds, data = car_raw, family = "binomial")
+
+# Predict probabilities
+probabilities <- predict(logit_model, type = "response")
+
+# Create a data frame for plotting
+plot_data <- data.frame(RespTimeSeconds = car_raw$RespTimeSeconds,
+                        probability = probabilities,
+                        Blink_or_Honk = car_raw$Blink_or_Honk)
+
+# Plotting the logistic regression curve
+ggplot(plot_data, aes(x = RespTimeSeconds, y = probability)) +
+  geom_point(aes(color = factor(Blink_or_Honk)), alpha = 0.5) +  # Add points colored by Blink_or_Honk
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE) +  # Add logistic regression curve
+  labs(x = "RespTimeSeconds", y = "Probability of Blink_or_Honk", color = "Blink_or_Honk") +
+  theme_minimal()
+
+         
+```
+
+We will have to use logistic regression to look at the linear relationship between Response Time and the log odds of the outcome, the driver's response (blink or honk). It appears linear, so this assumption is satisfied.
+
+## Assumption 7 / Homogeneity of Variances: `Not able to conduct this test`
+
+The Levene's test of equality of variances assumes continuous dependent variables, so we are not able to assess the homogeneity of variances in this case because we have one continuous dependent variable (Response Time) and one binary/categorical dependent variable (Blink or Honk response).
+
+## Assumption 8 / Homogeneity of Covariances: `Not able to conduct this test`
+We are also not able to conduct Box's M test because it is designed for continuous variables and depends on the variance of those continuous variables. 
+## MANOVA
+```{r}
+## MANCOVA model
+model <- manova(cbind(RespTimeSeconds, Blink_or_Honk) ~ CarColor + v_gender, data = car_raw)
+
+summary(model)
+
+#m2 <- lm(cbind(RespTimeSeconds,Blink_or_Honk) ~ CarColor + v_gender,  data = car_raw)
+#coef(m2)
+```
+
+Overall MANOVA Test:
+
+For CarColor, Pillai's trace is 0.075298 with an approximate F statistic of 4.069.
+For v_gender, Pillai's trace is 0.296780 with an approximate F statistic of 87.571.
+
+In summary, the MANOVA results indicate that both CarColor and v_gender have significant effects on the dependent variables. However, MANOVA may not be appropriate here because we have a binary dependent variable.
+
+
+## Trying SEM instead
+
+```{r}
+library(lavaan)
+
+# Specify the SEM model
+model <- "
+    # Measurement model for CarColor
+    latent_car_color =~ CarColor
+
+    # Structural model
+    Blink_or_Honk ~ latent_car_color + v_gender
+    RespTimeSeconds ~ latent_car_color + v_gender
+"
+
+# Fit the SEM model
+fit <- sem(model, data = car_raw)
+
+summary(fit)
+
+```
+
+The model did not converge properly, leading to  "NA" values in the parameter estimates. Since we are not super familiar with SEM, it is difficult to troubleshoot here.
