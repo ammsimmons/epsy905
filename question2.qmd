@@ -1,7 +1,9 @@
 ---
 title: "question2"
 author: "DAY"
-format: html
+format:
+  html:
+    embed-resources: true
 ---
 
 ## packages
@@ -16,7 +18,7 @@ library(patchwork) #for combining figures
 ```
 
 ## read in the data
-```{r}
+```{r, message = FALSE}
 car_raw <- read_csv("car_data.csv")
 ```
 
@@ -80,7 +82,7 @@ p1 + p2
 
 
 
-### Car Color -- equal group sizes
+### Car Color -- approximately equal group sizes
 ```{r}
 ## Car Color
 ## group sizes look equal
@@ -187,9 +189,7 @@ ggqqplot(car_raw, "RespTimeSeconds", facet.by = "CarColor",
 ### Shapiro test for multivariate normality
 
 ```{r}
-car_raw %>%
-  select(RespTimeSeconds) %>%
-  mshapiro_test()
+mshapiro_test(car_raw$RespTimeSeconds)
 ```
 The p value of the shapiro test is slightly greater than 0.05, which indicates that it is not significant, and we can assume multivariate normality. We cannot perform this test on the other dependent variable (Driver's reaction of blink or honk) because it is a binary/categorical variable.
 
