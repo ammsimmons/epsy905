@@ -207,21 +207,21 @@ From the biserial correlation, we can see that the two dependent variables are o
 ## Assumption 6 / Linearity between outcome variables: `Satisfied`
 
 ```{r, message = FALSE, warning = FALSE}
-# Fit logistic regression model
+# logistic regression model
 logit_model <- glm(Blink_or_Honk ~ RespTimeSeconds, data = car_raw, family = "binomial")
 
-# Predict probabilities
+# predict probabilities
 probabilities <- predict(logit_model, type = "response")
 
-# Create a data frame for plotting
+#figure data frame
 plot_data <- data.frame(RespTimeSeconds = car_raw$RespTimeSeconds,
                         probability = probabilities,
                         Blink_or_Honk = car_raw$Blink_or_Honk)
 
-# Plotting the logistic regression curve
+# figure
 ggplot(plot_data, aes(x = RespTimeSeconds, y = probability)) +
-  geom_point(aes(color = factor(Blink_or_Honk)), alpha = 0.5) +  # Add points colored by Blink_or_Honk
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE) +  # Add logistic regression curve
+  geom_point(aes(color = factor(Blink_or_Honk)), alpha = 0.5) +  #blink or honk is each point
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE) +  #curvy
   labs(x = "RespTimeSeconds", y = "Probability of Blink_or_Honk", color = "Blink_or_Honk") +
   theme_minimal()
 
@@ -277,6 +277,14 @@ model <- "
     Blink_or_Honk ~ latent_car_color + v_gender
     RespTimeSeconds ~ latent_car_color + v_gender
 "
+
+
+### model <- "
+## eta =~ C + B
+## eta ~ x
+### cfa(model, data, categorical = b) "
+
+## changes estimator from ML to DWLS or WLSMV
 
 # Fit the SEM model
 fit <- sem(model, data = car_raw)
