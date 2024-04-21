@@ -1,0 +1,27 @@
+---
+title: "EFA"
+author: "DAY"
+format: html
+---
+
+
+## load R packages
+```{r, message = FALSE}
+library(readxl)
+library(tidyverse)
+```
+
+## Read in the data
+```{r}
+data <- read_xlsx("saq_data.xlsx")
+df <- data.frame(data)
+```
+
+## Any missing data? -- NO! :)
+```{r}
+table(is.na(df))
+```
+
+
+
+
