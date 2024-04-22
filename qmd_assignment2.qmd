@@ -1,27 +1,309 @@
 ---
-title: "EFA"
-author: "DAY"
-format: html
+title: "EFA for EPSY 905"
+author: "Dasha Yermol"
+format: 
+    html: 
+      fig-width: 15
+      fig-height: 10
+      theme: cosmo
+      embed-resources: true
+      page-layout: full
+      smooth-scroll: true
+      fig-align: center
+      fig-pos: "H"
 ---
 
+## `Load R packages`
 
-## load R packages
 ```{r, message = FALSE}
-library(readxl)
-library(tidyverse)
+library(readxl) #read in xlsx file
+library(tidyverse) #data cleaning and manipulation
+library(psych) #for EFA tests
+library(lavaan) #to conduct EFA
+library(lavaanPlot) #to plot EFA objects
+library(psych) #to conduct EFA
 ```
 
-## Read in the data
+## `Read in the data`
+
 ```{r}
 data <- read_xlsx("saq_data.xlsx")
 df <- data.frame(data)
 ```
 
-## Any missing data? -- NO! :)
+## `Any missing data? -- NO! :)`
+
 ```{r}
 table(is.na(df))
 ```
 
+## 
+
+# `Assumptions of EFA:`
+
+1.  Relationship between variables and latent factors are linear
+2.  Some underlying latent structure exists
+3.  Linear coefficients are same across participants
+4.  Linear relationship between the variables and underlying normal distribution
+5.  Variables are ideally continuous, and if they are continuous, should have multivariate normality
+
+*Items 1-3 are conceptual assumptions of EFA. We will test assumptions 4 & 5 below*
+
+## 
+
+# `Assumption 4: Linearity and underlying normal distribution`
+
+## Histograms of variables -- From these, it appears that most variables are *not* normally distributed, but this not surprising considering that we are working with ordinal data.
+
+```{r}
+library(patchwork) #package that puts multiple figures side by side
+
+create_histogram <- function(data, col) {
+  ggplot(data, aes(x = .data[[col]])) +
+    geom_histogram(binwidth = 1, fill = "cornflowerblue", color = "black") +
+    labs(title = paste("Histogram of", col),
+         x = col, y = "Frequency") +
+    theme(aspect.ratio = 1/5)
+}
+
+
+histograms_ggplot <- lapply(colnames(df), function(col) {
+  create_histogram(df, col)
+})
+
+combined_histograms <- wrap_plots(histograms_ggplot, ncol = 4)
+
+combined_histograms
+```
+
+## Boxplot of variables -- another way to show distributions of the variables
+
+```{r, warning = FALSE}
+boxplot(df, notch = TRUE, boxfill= "cornflowerblue", whiskcol = "firebrick", pch=16, outcol = "firebrick")
+```
+
+## Pearson correlations between variables; it appears that we mostly have positive correlations between variables
+
+```{r}
+library(gpairs) #a package to visualize correlations between variables
+suppressWarnings(corrgram(df))
+```
+
+## `Looking at univariate skewness and kurtosis`
+
+#### According to Curran et al. (1996), univariate skew greater than 2.0 or kurtosis greater than 7.0 would indicate "severe univariate nonnormality". We did not have any concerning univariate skew or kurtosis values. This is reassuring, however, these tests are intended for continuous variables, so this finding should be interpreted with caution.
+
+```{r}
+describe(df)
+```
+
+## Summary of Assumption #4 (Linear relationship between the variables and underlying normal distribution) checking: Most of the variables are not normally distributed. However, this is typical for ordinal data. No concerns about univariate skewness or kurtosis (but this was done using tests meant for continuous variables, so these findings should be interpreted with caution).
+
+# `Assumption 5: Continuous Variables & Multivariate Normality`
+
+## Mardia's multivariate test for skewness and kurtosis.
+
+#### Our data is positively skewed and leptokurtic (pointyness)
+
+-   Multivariate skew = 20.74 (*p* \< 0.001)
+-   Multivariate kurtosis = 685.61 (*p* \< 0.001)
+-   According to Bentler (2005), multivariate kurtosis \> 3.0 to 5.0 might bias factor analysis results
+
+```{r, message = FALSE}
+library(QuantPsyc) #package to test for Mardia's multivariate skew and kurtosis
+mardia_results <- mult.norm(df)
+
+mardia_results$mult.test
+```
+
+## Plotting Mardia's skewness
+
+```{r, echo = FALSE}
+mardia(df, na.rm = TRUE, plot = TRUE)
+```
+
+## Robust Mahalanobis Distance
+
+#### Robust MD is more appropriate for ordinal data because of its robustness to outliers and lack of assumptions about the underlying distribution (i.e., better suited for non-normally distributed data with potential outliers)
+
+#### Results (see below) of RobustMD show 10 outliers, which we will remove before starting EFA
+
+```{r, message = FALSE}
+library(faoutlier) #for robustMD() function
+out = robustMD(df, method = "mcd")
+print(out)
+```
+
+## Plotting Robust MD
+
+```{r}
+plot(out, type = 'qqplot')
+```
+
+## Removing outliers (based on Robust MD Results)
+
+```{r}
+#rows with outliers
+outlier_indices <- c(1117, 84, 2051, 285, 1278, 678, 808, 1285, 680, 346)
+
+#remove outliers
+df_clean <- df %>%
+  filter(!row_number() %in% outlier_indices)
+
+```
+
+#### Summary of Assumption #5 (Variables are ideally continuous, and if they are continuous, should have multivariate normality) checking: Both Mardia's skewness/kurtosis tests and the Mahalanobis Distance test are intended for continuous variables. Since our data is ordinal, Mardia's skewness/kurtosis results make sense because thety suggest that our data are not multivariate normal. As a result, we should proceed with a polychoric matrix so not to bias EFA results. However, to accommodate our ordinal data, we used Robust Mahalanobis Distance (instead of Mahalanobis Distance, which is intended for continuous variables) to determine multivariate outliers in our data. We removed 10 multivariate outliers in our data.
+
+#### TO NOTE: It is often not appropriate to pretend that categorical variables are continuous (Flora et al., 2012). Since we are working with ordinal/categorical data, we will proceed with a polychoric matrix.Polychoric correlations assume that a normally distributed continuous, but unobservable, latent variable underlies the observed ordinal variable. Polychoric correlations are a maximum likelihood estimate of the Pearson correlations for those underlying normally distributed continuous variables (Basto & Pereira, 2012).
+
+-   Pearson correlations assume normality, which requires continuous scores. Thus, categorical scores are not, by definition, normally distributed (Bandalos, 2018; Hancock & Liu, 2012; Puth et al., 2015; Walsh, 1996).
+
+## Converting to Polychoric Matrix
+
+```{r}
+output_poly <- polychoric(df_clean)
+
+#extract polychoric matrix from output object
+poly = output_poly$rho
+
+#preview of polychoric matrix
+head(poly)
+```
+
+## 
+
+## `Is EFA Appropriate?`
+
+### Ideally, we will have many correlations above 0.3, which is appropriate for EFA. The correlation matrix can be visually scanned to ensure that there are several coefficients ≥ .30 (Hair et al., 2019; Tabachnick & Fidell, 2019).
+
+## Polychoric Correlation Graph (orange = pos. correlation, green = negative correlation, lines increase in thickness as correlation strength increases)
+
+```{r}
+library(qgraph) #package to create correlation graph
+
+qgraph(poly, cut = 0.3, details = TRUE, posCol = "orangered", negCol = "green", labels=names(df_clean))
+```
+
+## Another Correlation Plot
+
+```{r}
+corPlot(poly, diag = F, zlim = c(.3, 1), upper = F, numbers = TRUE, cex.axis = 0.5)
+```
+
+### The figures show that most correlations are above 0.3, which is reassuring, since that's ideal for EFA. :)
+
+## KMO: Kaiser-Meyer-Olkin Factor Adequacy
+
+-   KMO is used to measure sampling adequacy (Kaiser, 1974) and to ensure that there is enough shared variance. In other words, the KMO indicates whether variables are likely to be factorizable (values closer to 1 means that the variables are more suitable for FA).
+
+```{r}
+KMO(poly)
+```
+
+### Most of the KMO values are above 0.85, which is ideal! :)
+
+## Bartlett's Test of Sphericity
+
+-   Bartlett's Test of Sphericity is used to ensure that the correlations between variables are significantly different from zero.
+
+```{r}
+cortest.bartlett(poly, n = 2561)
+```
+
+### Bartlett's Test of Sphericity results indicate that we reject the hypothesis that the polychoric correlation matrix is an identiy matrix (χ² = 24,379.88, *p* \< 0.001).
+
+## 
+
+## `Determining the Number of Factors`
+
+## Parallel Analysis
+
+```{r}
+fa.parallel(poly, n.obs = 2561, fa = "pc", n.iter = 500) #n.iter = 500 means 500 simulated analyses to perform
+```
+#### Parallel Analysis suggests 4 factors
+
+
+## MAP: Minimal Average Partials
+ - MAP is calculated based on the partial correlations between observed variables and the remaining variables in the dataset after controlling for the latent factors. The minimal average of these partials across all variables is then computed.
+ - A higher MAP value indicates better model fit, suggesting that the latent factors explain a larger proportion of the variance in the observed variables. Conversely, a lower MAP value indicates poorer model fit, suggesting that the latent factors do not adequately capture the relationships among the observed variables.
+ 
+```{r}
+VSS(poly, rotate = "promax", fm = "pc", plot = TRUE, n.obs = 2561)
+# note: promax is a type of oblique rotation, which allows the factors to be correlated
+```
+
+#### The Velicer MAP results achieved a minimum of 0.01  with  4  factors 
 
 
 
+## Scree Plot
+```{r}
+scree(poly, pc = TRUE, factors = FALSE, hline = "-1")
+```
+#### Scree Plot suggest 2-3 factors
+
+## Network Plot
+
+```{r, warning = FALSE}
+library(EGAnet)
+EGA(poly, n = 2561, ploy.EGA = TRUE, steps = 10)
+```
+#### Network graph suggests 4 factors
+
+
+### How many factors?
+- `Parallel Analysis : 4`
+- `MAP: 4`
+- `Scree Plot: 2-4`
+- `Network Plot: 4`
+*We will fit 3 EFA models with 2, 3, and 4 factors.*
+
+# `EFA MODELS BELOW`
+*We will use oblimin rotation, which is an oblique rotation method in factor analysis that allows for correlated factors, preserving the original correlations among factors. It estimates inter-factor correlations, providing insights into the underlying structure of the data, particularly useful when factors are expected to be related.*
+
+## EFA with 2 factors
+```{r}
+f2 = fa(poly, nfactors = 2, rotate = "oblimin", residuals = T, SMC = T, fm = "pa", n.obs = 2561)
+print(f2, sort = TRUE, cut = 0, digits = 2)
+```
+## EFA with 2 factors PLOT
+```{r}
+fa.diagram(f2, cut = 0, sort = TRUE)
+```
+#### Most variables seem to load onto factor 1
+
+
+
+## EFA with 3 factors
+```{r}
+f3 = fa(poly, nfactors = 3, rotate = "oblimin", residuals = T, SMC = T, fm = "pa", n.obs = 2561)
+print(f3, sort = TRUE, cut = 0, digits = 2)
+```
+## EFA with 3 factors PLOT
+```{r}
+fa.diagram(f3, cut = 0, sort = TRUE)
+```
+
+
+## EFA with 4 factors
+```{r}
+f4 = fa(poly, nfactors = 4, rotate = "oblimin", residuals = T, SMC = T, fm = "pa", n.obs = 2561)
+print(f4, sort = TRUE, cut = 0, digits = 2)
+```
+
+#### The root mean square of the residuals (RMSR) for model with 4 factors: 0.03 
+
+
+## EFA with 4 factors PLOT
+```{r}
+fa.diagram(f4, cut = 0, sort = TRUE)
+```
+
+
+# Summary of RMSR values:
+- 2 factor model: 0.05
+- 3 factor model: 0.04
+- 4 factor mdoel: 0.03 
+
+The smaller the RMSR (Root Mean Squared Residual) value, the better. RMSR is a measure of overall residual misfit. RSMR values less than .08 are preferred (Brown, 2013). RMSR results suggest that the last model, with 4 factors is most suitable to fit the data.
