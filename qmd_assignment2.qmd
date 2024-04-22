@@ -264,7 +264,7 @@ EGA(poly, n = 2561, ploy.EGA = TRUE, steps = 10)
 
 ## EFA with 2 factors
 ```{r}
-f2 = fa(poly, nfactors = 2, rotate = "oblimin", residuals = T, SMC = T, fm = "pa", n.obs = 2561)
+f2 = fa(poly, nfactors = 2, rotate = "oblimin", residuals = T, SMC = T, fm = "wls", n.obs = 2561)
 print(f2, sort = TRUE, cut = 0, digits = 2)
 ```
 ## EFA with 2 factors PLOT
@@ -277,7 +277,7 @@ fa.diagram(f2, cut = 0, sort = TRUE)
 
 ## EFA with 3 factors
 ```{r}
-f3 = fa(poly, nfactors = 3, rotate = "oblimin", residuals = T, SMC = T, fm = "pa", n.obs = 2561)
+f3 = fa(poly, nfactors = 3, rotate = "oblimin", residuals = T, SMC = T, fm = "wls", n.obs = 2561)
 print(f3, sort = TRUE, cut = 0, digits = 2)
 ```
 ## EFA with 3 factors PLOT
@@ -288,7 +288,7 @@ fa.diagram(f3, cut = 0, sort = TRUE)
 
 ## EFA with 4 factors
 ```{r}
-f4 = fa(poly, nfactors = 4, rotate = "oblimin", residuals = T, SMC = T, fm = "pa", n.obs = 2561)
+f4 = fa(poly, nfactors = 4, rotate = "oblimin", residuals = T, SMC = T, fm = "wls", n.obs = 2561)
 print(f4, sort = TRUE, cut = 0, digits = 2)
 ```
 
@@ -303,7 +303,7 @@ fa.diagram(f4, cut = 0, sort = TRUE)
 
 # Summary of RMSR values:
 - 2 factor model: 0.05
-- 3 factor model: 0.04
+- 3 factor model: 0.05
 - 4 factor mdoel: 0.03 
 
 The smaller the RMSR (Root Mean Squared Residual) value, the better. RMSR is a measure of overall residual misfit. RSMR values less than .08 are preferred (Brown, 2013). RMSR results suggest that the last model, with 4 factors is most suitable to fit the data.
